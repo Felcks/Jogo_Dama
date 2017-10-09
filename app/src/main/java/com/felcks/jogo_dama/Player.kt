@@ -6,24 +6,27 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.util.Log
+import java.util.*
 
 class Player (val board: Board,
               val pieceColor: PieceColor,
               val playerType: PlayerType,
-              val playerSide: PlayerSide) {
+              val playerSide: PlayerSide,
+              val gameManager: GameManager) {
 
     val possibilities = mutableListOf<Move>()
     var hasSelectedPiece: Boolean = false
+    var clickedPiece: Piece? = null
 
     init{
         for(i in 0..board.rows-1) {
             for (j in 0..board.columns - 1) {
 
                 if((i + j) % 2 == 1) {
-                    if(i >= 6 && playerSide == PlayerSide.BOTTOM){
+                    if(i >= 5 && playerSide == PlayerSide.BOTTOM){
                         board.pieces[i][j] = Piece(PieceType.PEAO, pieceColor)
                     }
-                    else if(i <= 1 && playerSide == PlayerSide.TOP){
+                    else if(i <= 2 && playerSide == PlayerSide.TOP){
                         board.pieces[i][j] = Piece(PieceType.PEAO, pieceColor)
                     }
                 }
@@ -31,19 +34,23 @@ class Player (val board: Board,
         }
     }
 
-    public fun draw(canvas: Canvas){
+    fun draw(canvas: Canvas){
 
-        for(poss in possibilities){
+        try {
+            for(poss in possibilities){
 
-            val rect = board.getRectBasedOnBoardPos(poss.x, poss.y)
-            val paint = Paint()
-            paint.color = Color.argb(255, 255, 50, 50)
+                val rect = board.getRectBasedOnBoardPos(poss.x, poss.y)
+                val paint = Paint()
+                paint.color = Color.argb(255, 255, 50, 50)
 
-            canvas.drawRect(rect, paint)
+                canvas.drawRect(rect, paint)
+            }
+        }catch(e: ConcurrentModificationException){
+
         }
     }
 
-    public fun onTouch(x: Int, y: Int){
+    fun onTouch(x: Int, y: Int){
 
         if(playerType == PlayerType.HUMAN){
 
@@ -55,12 +62,20 @@ class Player (val board: Board,
 
                         board.pieces[move.x][move.y] = board.pieces[move.oldX][move.oldY]
                         board.pieces[move.oldX][move.oldY] = null
+                        gameManager.changePlayerTurn(this)
+
+
+                        if(isOnOpponentBoardEdge(move.x, move.y)){
+                            turnBoss(move.x, move.y)
+                        }
                     }
                 }
             }
 
 
             hasSelectedPiece = false
+            possibilities.clear()
+
             for(i in 0..board.rows-1) {
                 for (j in 0..board.columns - 1) {
 
@@ -68,8 +83,16 @@ class Player (val board: Board,
                         val rect = board.getRectBasedOnBoardPos(i, j)
                         if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
 
-                            calculatePossibilities(i, j)
+                            if(clickedPiece != null)
+                                if(clickedPiece == board.pieces[i][j]) {
+                                    clickedPiece = null
+                                    possibilities.clear()
+                                    return
+                                }
+
+                            calculatePossibilities(i, j, board.pieces[i][j])
                             hasSelectedPiece = true
+                            clickedPiece = board.pieces[i][j]
                             return
                         }
                     }
@@ -78,43 +101,120 @@ class Player (val board: Board,
         }
     }
 
-    private fun calculatePossibilities(i: Int, j: Int){
+    private fun calculatePossibilities(i: Int, j: Int, piece: Piece?){
 
         possibilities.clear()
 
         var possib_x = arrayOf(-1)
         var possib_y = arrayOf(-1)
 
-        Log.i("script", "$i $j")
+        if(piece == null)
+            return;
 
-        if(playerSide == PlayerSide.BOTTOM) {
-            possib_x = arrayOf(i-1)
-            possib_y = arrayOf(j-1, j+1)
+        if(piece.type == PieceType.DAMA){
+            var count: Int = 1
+            var blockQuad1 = false
+            var blockQuad2 = false
+            for(x in i-1 downTo 0){
+
+                if(board.isValidPos(x, j-count) == true) {
+                    if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                        blockQuad1 = true
+                }
+                else
+                    blockQuad1 = true
+
+                if(board.isValidPos(x, j+count) == true) {
+                    if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                        blockQuad2 = true
+                }
+                else
+                    blockQuad2 = true
+
+
+                if(blockQuad1 == false)
+                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT))
+
+                if(blockQuad2 == false)
+                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT))
+
+                count++
+            }
+
+            count = 1
+            blockQuad1 = false;
+            blockQuad2 = false
+            for(x in i+1..board.rows-1){
+
+                if(board.isValidPos(x, j-count) == true) {
+                    if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                        blockQuad1 = true
+                }
+                else
+                    blockQuad1 = true
+
+                if(board.isValidPos(x, j + count) == true) {
+                    if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                        blockQuad2 = true
+                }
+                else
+                    blockQuad2 = true
+
+
+                if(blockQuad1 == false)
+                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT))
+
+                if(blockQuad2 == false)
+                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT))
+                count++
+            }
         }
-        else{
-            possib_x = arrayOf(i+1)
-            possib_y = arrayOf(j-1, j+1)
-        }
+        else {
+            if (playerSide == PlayerSide.BOTTOM) {
+                possib_x = arrayOf(i - 1)
+                possib_y = arrayOf(j - 1, j + 1)
+            } else {
+                possib_x = arrayOf(i + 1)
+                possib_y = arrayOf(j - 1, j + 1)
+            }
 
-        for(x in possib_x){
-            for(y in possib_y) {
+            for(x in possib_x){
+                for(y in possib_y) {
 
-                if (board.isValidPos(x, y)) {
-                    if (board.pieces[x][y] == null) {
-                        possibilities.add(Move(i, j, x, y, MoveType.MOVEMENT))
+                    if (board.isValidPos(x, y)) {
+                        if (board.hasPieceOnPos(x,y) == false) {
+                            possibilities.add(Move(i, j, x, y, MoveType.MOVEMENT))
+                        }
+                        else{
+                            if(board.hasEnemyPieceOnPos(x, y, this)){
+                                possibilities.add(Move(i, j, x + (x-i), y + (y-j), MoveType.MOVEMENT))
+                            }
+                        }
                     }
                 }
             }
         }
-        /*if(i - 1 >= 0 && j - 1 >= 0){
 
-            Log.i("script", "caaado")
-            if(board.pieces[i-1][j-1] == null){
-                //Nao tem peça nessa posição
-                possibilities.add(Move(i-1, j-1, MoveType.MOVEMENT))
-                Log.i("script", "calculou um movemento valido")
+
+    }
+
+    private fun isOnOpponentBoardEdge(row: Int, column: Int): Boolean{
+        if(pieceColor == PieceColor.WHITE){
+            if(row == 0){
+                return true
             }
-        }*/
+        }
+        else if(pieceColor == PieceColor.BLACK){
+            if(row == board.rows - 1){
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private fun turnBoss(row: Int, column: Int){
+        board.pieces[row][column]?.turnBoss();
     }
 
 }

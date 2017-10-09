@@ -24,14 +24,16 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
     var canvas: Canvas? = null
     val board : Board
     val player_1 : Player
-    val player_turn : Player
+    val player_2 : Player
+    var player_turn : Player
 
     var currTimeLapse: Int = 10
     val delay: Int = 10;
 
     init {
         board = Board(8,8)
-        player_1 = Player(board, PieceColor.WHITE, PlayerType.HUMAN, PlayerSide.BOTTOM)
+        player_1 = Player(board, PieceColor.WHITE, PlayerType.HUMAN, PlayerSide.BOTTOM, this)
+        player_2 = Player(board, PieceColor.BLACK, PlayerType.HUMAN, PlayerSide.TOP, this)
         player_turn = player_1
     }
 
@@ -55,10 +57,11 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
 
             canvas = surfaceHolder.lockCanvas()
 
-            canvas?.drawColor(Color.argb(255, 255, 0,0))
+            canvas?.drawColor(Color.argb(255, 0, 0,0))
 
             board.draw(canvas!!)
             player_1.draw(canvas!!)
+            player_2.draw(canvas!!)
 
             surfaceHolder.unlockCanvasAndPost(canvas)
         }
@@ -66,6 +69,13 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
 
     fun update(){
 
+    }
+
+    fun changePlayerTurn(player: Player){
+        if(player.equals(player_1))
+            player_turn = player_2
+        else
+            player_turn = player_1
     }
 
     public override fun onTouchEvent(event: MotionEvent): Boolean {

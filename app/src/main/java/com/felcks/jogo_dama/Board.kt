@@ -53,6 +53,11 @@ class Board(val rows: Int, val columns: Int) {
         if((i + j) % 2 == 1 && pieces[i][j] != null) {
             paint.color = pieces[i][j]!!.color.rgb
             canvas.drawCircle(posX, posY, squareSize.toFloat()/2.5f, paint)
+
+            if(pieces[i][j]?.type == PieceType.DAMA){
+                paint.color = colorDarkSquare
+                canvas.drawCircle(posX, posY, squareSize.toFloat()/3.5f, paint)
+            }
         }
     }
 
@@ -63,10 +68,28 @@ class Board(val rows: Int, val columns: Int) {
         return Rect(posX, posY, posX + squareSize, posY + squareSize)
     }
 
-    public fun hasMyPieceOnPos(i: Int, j: Int, player: Player) : Boolean{
+    fun hasMyPieceOnPos(i: Int, j: Int, player: Player) : Boolean{
 
         if(pieces[i][j] != null) {
             if (pieces[i][j]?.color == player.pieceColor)
+                return true
+        }
+
+        return false
+    }
+
+    fun hasEnemyPieceOnPos(i: Int, j: Int, player: Player) : Boolean{
+
+        if(pieces[i][j] != null) {
+            if (pieces[i][j]?.color != player.pieceColor)
+                return true
+        }
+
+        return false
+    }
+
+    fun hasPieceOnPos(i: Int, j: Int) : Boolean{
+        if(pieces[i][j] != null) {
                 return true
         }
 
