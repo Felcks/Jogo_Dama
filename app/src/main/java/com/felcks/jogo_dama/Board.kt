@@ -5,7 +5,9 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.SurfaceHolder
+import java.lang.Math.abs
 
 class Board(val rows: Int, val columns: Int) {
 
@@ -14,7 +16,7 @@ class Board(val rows: Int, val columns: Int) {
     val squareSize : Int = SCREEN_WIDTH / rows
     val startX : Int
     val startY : Int
-    public val pieces = array2d<Piece?>(rows, columns) { null }
+    public var pieces = array2d<Piece?>(rows, columns) { null }
 
     init{
         startX = (SCREEN_WIDTH - (rows * squareSize)) / 2
@@ -78,10 +80,31 @@ class Board(val rows: Int, val columns: Int) {
         return false
     }
 
+    fun hasMyPieceOnPos2(i: Int, j: Int, player: Player,  mpieces: Array<Array<Piece?>>) : Boolean{
+
+        if(mpieces[i][j] != null) {
+            if (mpieces[i][j]?.color == player.pieceColor)
+                return true
+        }
+
+        return false
+    }
+
     fun hasEnemyPieceOnPos(i: Int, j: Int, player: Player) : Boolean{
 
         if(pieces[i][j] != null) {
             if (pieces[i][j]?.color != player.pieceColor)
+                return true
+        }
+
+        return false
+    }
+
+
+    fun hasEnemyPieceOnPos2(i: Int, j: Int, player: Player,  mpieces: Array<Array<Piece?>>) : Boolean{
+
+        if(mpieces[i][j] != null) {
+            if (mpieces[i][j]?.color != player.pieceColor)
                 return true
         }
 
@@ -96,10 +119,24 @@ class Board(val rows: Int, val columns: Int) {
         return false
     }
 
-    public fun isValidPos(i: Int, j: Int): Boolean{
+    fun isValidPos(i: Int, j: Int): Boolean{
         if(i >=0 && i < rows && j >= 0 && j < columns)
             return true
 
         return false
+    }
+
+    fun eatPiece(move: Move){
+
+        val x = move.x + (move.oldX - move.x)/abs(move.x - move.oldX)
+        val y = move.y + (move.oldY - move.y)/abs(move.y - move.oldY)
+        pieces[x][y] = null
+    }
+
+    fun fakeEatPiece(move: Move, fpieces: Array<Array<Piece?>>): Array<Array<Piece?>>{
+        val x = move.x + (move.oldX - move.x)/abs(move.x - move.oldX)
+        val y = move.y + (move.oldY - move.y)/abs(move.y - move.oldY)
+        fpieces[x][y] = null
+        return fpieces
     }
 }

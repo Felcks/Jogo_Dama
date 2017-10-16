@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.util.Log
 import android.view.MotionEvent
 import android.view.SurfaceHolder
@@ -33,7 +34,7 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
     init {
         board = Board(8,8)
         player_1 = Player(board, PieceColor.WHITE, PlayerType.HUMAN, PlayerSide.BOTTOM, this)
-        player_2 = Player(board, PieceColor.BLACK, PlayerType.HUMAN, PlayerSide.TOP, this)
+        player_2 = Player(board, PieceColor.BLACK, PlayerType.MACHINE, PlayerSide.TOP, this)
         player_turn = player_1
     }
 
@@ -63,22 +64,51 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
             player_1.draw(canvas!!)
             player_2.draw(canvas!!)
 
+            var textPlayer1 = ""
+            var textPlayer2 = ""
+            if(player_turn == player_1){
+                textPlayer1 = "Seu turno!"
+            }
+            else{
+                textPlayer2 = "Seu turno!"
+            }
+
+            val paint: Paint = Paint()
+            paint.color = Color.argb(255, 255, 255, 255)
+            paint.textSize = 20.toFloat()
+            canvas?.drawText("Destruiu: ${player_1.eatenPieces}/12",  SCREEN_WIDTH/2.toFloat() - board.squareSize ,
+                                            SCREEN_HEIGHT.toFloat() - 50, paint)
+            canvas?.drawText(textPlayer1,  SCREEN_WIDTH/2.toFloat() - board.squareSize ,
+                    SCREEN_HEIGHT.toFloat() - 100, paint)
+
+            canvas?.save();
+            canvas?.rotate(-180f, SCREEN_WIDTH/2.toFloat() - board.squareSize, 50f);
+            canvas?.drawText("Destruiu: ${player_2.eatenPieces}/12",  SCREEN_WIDTH/2.toFloat() - 3*board.squareSize ,
+                    50f, paint)
+            canvas?.drawText(textPlayer2,  SCREEN_WIDTH/2.toFloat() - 3*board.squareSize ,
+                    0f, paint)
+            canvas?.restore()
+
+
             surfaceHolder.unlockCanvasAndPost(canvas)
         }
     }
 
     fun update(){
-
+        if(player_turn.playerType == PlayerType.MACHINE && player_turn.playing == false){
+            player_turn.alphaBeta(board.pieces, 4, player_1)
+            player_turn.playing = true
+        }
     }
 
     fun changePlayerTurn(player: Player){
-        if(player.equals(player_1))
+        if(player == player_1)
             player_turn = player_2
         else
             player_turn = player_1
     }
 
-    public override fun onTouchEvent(event: MotionEvent): Boolean {
+    override fun onTouchEvent(event: MotionEvent): Boolean {
 
         if(event.action == MotionEvent.ACTION_DOWN){
 

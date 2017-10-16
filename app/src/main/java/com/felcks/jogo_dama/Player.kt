@@ -17,16 +17,18 @@ class Player (val board: Board,
     val possibilities = mutableListOf<Move>()
     var hasSelectedPiece: Boolean = false
     var clickedPiece: Piece? = null
+    var eatenPieces = 0
+    var playing = false
 
     init{
         for(i in 0..board.rows-1) {
             for (j in 0..board.columns - 1) {
 
                 if((i + j) % 2 == 1) {
-                    if(i >= 5 && playerSide == PlayerSide.BOTTOM){
+                    if(i >= 7 && playerSide == PlayerSide.BOTTOM){
                         board.pieces[i][j] = Piece(PieceType.PEAO, pieceColor)
                     }
-                    else if(i <= 2 && playerSide == PlayerSide.TOP){
+                    else if(i <= 0 && playerSide == PlayerSide.TOP){
                         board.pieces[i][j] = Piece(PieceType.PEAO, pieceColor)
                     }
                 }
@@ -36,12 +38,16 @@ class Player (val board: Board,
 
     fun draw(canvas: Canvas){
 
+        if(playerType == PlayerType.MACHINE)
+            return
+
         try {
             for(poss in possibilities){
 
                 val rect = board.getRectBasedOnBoardPos(poss.x, poss.y)
                 val paint = Paint()
-                paint.color = Color.argb(255, 255, 50, 50)
+                val alpha = getMoveAlpha(poss.order)
+                paint.color = Color.argb(alpha, 255, 50, 50)
 
                 canvas.drawRect(rect, paint)
             }
@@ -55,18 +61,33 @@ class Player (val board: Board,
         if(playerType == PlayerType.HUMAN){
 
             if(hasSelectedPiece){
-                //Conferir se eu cliquei em alguma possibilidade!
-                for(move in possibilities){
-                    val rect = board.getRectBasedOnBoardPos(move.x, move.y)
-                    if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
+                for(move in possibilities) {
+                    if (move.order == MoveOrder.PRIMARY) {
+                        val rect = board.getRectBasedOnBoardPos(move.x, move.y)
+                        if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
 
-                        board.pieces[move.x][move.y] = board.pieces[move.oldX][move.oldY]
-                        board.pieces[move.oldX][move.oldY] = null
-                        gameManager.changePlayerTurn(this)
+                            var aux: Move? = move
+                            while (aux?.prev != null) {
+                                aux = aux.prev as Move
+                            }
 
 
-                        if(isOnOpponentBoardEdge(move.x, move.y)){
-                            turnBoss(move.x, move.y)
+                            do {
+                                board.pieces[aux!!.x][aux!!.y] = board.pieces[aux.oldX][aux.oldY]
+                                board.pieces[aux!!.oldX][aux!!.oldY] = null
+                                if(aux.type == MoveType.EAT){
+                                    board.eatPiece(aux)
+                                    eatenPieces++
+                                }
+                                aux = aux.next
+                            } while (aux != null)
+
+                            gameManager.changePlayerTurn(this)
+
+
+                            if (isOnOpponentBoardEdge(move.x, move.y)) {
+                                turnBoss(move.x, move.y)
+                            }
                         }
                     }
                 }
@@ -90,7 +111,7 @@ class Player (val board: Board,
                                     return
                                 }
 
-                            calculatePossibilities(i, j, board.pieces[i][j])
+                            calculatePossibilities(i, j, board.pieces[i][j], 0, this)
                             hasSelectedPiece = true
                             clickedPiece = board.pieces[i][j]
                             return
@@ -101,7 +122,7 @@ class Player (val board: Board,
         }
     }
 
-    private fun calculatePossibilities(i: Int, j: Int, piece: Piece?){
+    private fun calculatePossibilities(i: Int, j: Int, piece: Piece?, blockQuad: Int, player: Player){
 
         possibilities.clear()
 
@@ -113,64 +134,110 @@ class Player (val board: Board,
 
         if(piece.type == PieceType.DAMA){
             var count: Int = 1
-            var blockQuad1 = false
-            var blockQuad2 = false
+            var blockQuad1 = blockQuad == 1
+            var blockQuad2 = blockQuad == 2
+            var eatQuad1 = false
+            var eatQuad2 = false
+
             for(x in i-1 downTo 0){
 
-                if(board.isValidPos(x, j-count) == true) {
+                if(board.isValidPos(x, j-count) == true && blockQuad1 == false) {
                     if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                        blockQuad1 = true
+                    else if(board.hasPieceOnPos(x, j - count) && eatQuad1 == false)
+                        eatQuad1 = true
+                    else if(eatQuad1 && board.hasPieceOnPos(x, j - count) == false) {
+                        blockQuad1 = true
+                        val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
+                        possibilities.add(move)
+                        calculateMovePossib(x, j - count, move)
+                    }
+                    else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
                 }
                 else
                     blockQuad1 = true
 
-                if(board.isValidPos(x, j+count) == true) {
+                if(board.isValidPos(x, j + count) == true && blockQuad2 == false) {
                     if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                        blockQuad2 = true
+                    else if(board.hasPieceOnPos(x, j + count) && eatQuad2 == false)
+                        eatQuad2 = true
+                    else if(eatQuad2 && board.hasPieceOnPos(x, j + count) == false) {
+                        blockQuad2 = true
+                        val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
+                        possibilities.add(move)
+                        calculateMovePossib(x, j + count, move)
+                    }
+                    else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
                 }
                 else
                     blockQuad2 = true
 
 
-                if(blockQuad1 == false)
-                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT))
+                if(blockQuad1 == false && eatQuad1 == false)
+                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT, MoveOrder.PRIMARY))
 
-                if(blockQuad2 == false)
-                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT))
+                if(blockQuad2 == false && eatQuad2 == false)
+                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT, MoveOrder.PRIMARY))
 
                 count++
             }
 
             count = 1
-            blockQuad1 = false;
-            blockQuad2 = false
+            blockQuad1 = blockQuad == 3
+            blockQuad2 = blockQuad == 4
+            eatQuad1 = false
+            eatQuad2 = false
             for(x in i+1..board.rows-1){
 
-                if(board.isValidPos(x, j-count) == true) {
+                if(board.isValidPos(x, j-count) == true && blockQuad1 == false) {
                     if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                        blockQuad1 = true
+                    else if(board.hasPieceOnPos(x, j - count) && eatQuad1 == false)
+                        eatQuad1 = true
+                    else if(eatQuad1 && board.hasPieceOnPos(x, j - count) == false) {
+                        blockQuad1 = true
+                        val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
+                        possibilities.add(move)
+                        calculateMovePossib(x, j - count, move)
+                    }
+                    else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
                 }
                 else
                     blockQuad1 = true
 
-                if(board.isValidPos(x, j + count) == true) {
+
+                if(board.isValidPos(x, j + count) == true && blockQuad2 == false) {
                     if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                        blockQuad2 = true
+                    else if(board.hasPieceOnPos(x, j + count) && eatQuad2 == false)
+                        eatQuad2 = true
+                    else if(eatQuad2 && board.hasPieceOnPos(x, j + count) == false) {
+                        blockQuad2 = true
+                        val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
+                        possibilities.add(move)
+                        calculateMovePossib(x, j + count, move)
+                    }
+                    else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
                 }
                 else
                     blockQuad2 = true
 
 
-                if(blockQuad1 == false)
-                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT))
+                if(blockQuad1 == false && eatQuad1 == false)
+                    possibilities.add(Move(i, j, x, j - count, MoveType.MOVEMENT, MoveOrder.PRIMARY))
 
-                if(blockQuad2 == false)
-                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT))
+                if(blockQuad2 == false && eatQuad2 == false)
+                    possibilities.add(Move(i, j, x, j + count, MoveType.MOVEMENT, MoveOrder.PRIMARY))
                 count++
             }
         }
         else {
-            if (playerSide == PlayerSide.BOTTOM) {
+            if (player.playerSide == PlayerSide.BOTTOM) {
                 possib_x = arrayOf(i - 1)
                 possib_y = arrayOf(j - 1, j + 1)
             } else {
@@ -180,22 +247,202 @@ class Player (val board: Board,
 
             for(x in possib_x){
                 for(y in possib_y) {
-
                     if (board.isValidPos(x, y)) {
                         if (board.hasPieceOnPos(x,y) == false) {
-                            possibilities.add(Move(i, j, x, y, MoveType.MOVEMENT))
+                            possibilities.add(Move(i, j, x, y, MoveType.MOVEMENT, MoveOrder.PRIMARY))
                         }
-                        else{
-                            if(board.hasEnemyPieceOnPos(x, y, this)){
-                                possibilities.add(Move(i, j, x + (x-i), y + (y-j), MoveType.MOVEMENT))
+                    }
+                }
+            }
+
+            possib_x = arrayOf(i - 1, i + 1)
+            possib_y = arrayOf(j - 1, j + 1)
+            for(x in possib_x) {
+                for (y in possib_y) {
+                    if (board.isValidPos(x, y)) {
+                        if (board.hasEnemyPieceOnPos(x, y, this)) {
+                            if (board.isValidPos(x + (x - i), y + (y - j)))
+                                if (board.hasPieceOnPos(x + (x - i), y + (y - j)) == false) {
+                                    removeMovementsFromPossibilities()
+                                    val move = Move(i, j, x + (x - i), y + (y - j), MoveType.EAT, MoveOrder.PRIMARY)
+                                    possibilities.add(move)
+                                    calculateMovePossib(x + (x - i), y + (y - j), move)
+                                }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    private fun calculateMovePossib(i: Int, j: Int, antMove: Move){
+
+        val possib_x = arrayOf(i - 1, i + 1)
+        val possib_y = arrayOf(j - 1, j + 1)
+        for(x in possib_x) {
+            for (y in possib_y) {
+                if (board.isValidPos(x, y)) {
+                    if (board.hasEnemyPieceOnPos(x, y, this)) {
+                        val nextX = x + (x - i)
+                        val nextY = y + (y - j)
+                        if (board.isValidPos(nextX, nextY)) {
+                            if (board.hasPieceOnPos(nextX, nextY) == false) {
+                                if(hasMoveOnPos(nextX, nextY) == false) {
+                                    val move = Move(i, j, nextX, nextY, MoveType.EAT, MoveOrder.PRIMARY)
+                                    move.prev = antMove
+                                    antMove.next = move
+                                    antMove.order = MoveOrder.SECUNDARY
+
+                                    possibilities.add(move)
+                                    calculateMovePossib(nextX, nextY, move)
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    fun alphaBeta(pieces:  Array<Array<Piece?>>, ply: Int, opponent: Player){
+
+        //return score if game.isOver
+
+        val moveScore = ab(pieces, ply, this, opponent, -999, 999)
+
+        var aux: Move? = moveScore?.move
+        while (aux?.prev != null) {
+            aux = aux.prev as Move
+        }
+
+        if(aux != null) {
+            do {
+                board.pieces[aux!!.x][aux!!.y] = board.pieces[aux.oldX][aux.oldY]
+                board.pieces[aux!!.oldX][aux!!.oldY] = null
+                if (aux.type == MoveType.EAT) {
+                    board.eatPiece(aux)
+                    eatenPieces++
+                }
+                aux = aux.next
+            } while (aux != null)
+
+            gameManager.changePlayerTurn(this)
+
+            if (moveScore?.move != null) {
+                val move = moveScore.move
+                if (move != null)
+                    if (isOnOpponentBoardEdge(move.x, move.y)) {
+                        turnBoss(move.x, move.y)
+                    }
+            }
+        }
+
+        Log.i("script", "made movement")
+
+        //Pegar todas as possibilidades de movimento
+    }
+
+    fun score(player: Player, pieces: Array<Array<Piece?>>): Int{
+
+        var scr : Int = 0
+        var win : Int = 500
+        for(i in 0..board.rows-1) {
+            for (j in 0..board.columns - 1) {
+                if (board.hasMyPieceOnPos2(i, j, player, pieces)) {
+                    scr += 1
+                }
+                else if(board.hasEnemyPieceOnPos2(i, j, player, pieces)){
+                    scr -= 1
+                    win = 0
+                }
+            }
+        }
+
+        Log.i("script", "$scr");
+        scr += win
+
+        return scr
+    }
+
+    fun ab(pieces:  Array<Array<Piece?>>, ply: Int, player: Player, opponent: Player, low: Int, high: Int): MoveScore?{
+        var bestScore = -999
+        var bestMove : MoveScore? = MoveScore(null, -999)
+        var mLow = low
+        var mHigh = high
+
+        if(ply == 0){
+            val score: Int = score(player, pieces)
+            bestMove = MoveScore(null, score)
+            Log.i("script", "passou aqui")
+            return bestMove
+        }
+
+        for(i in 0..board.rows-1){
+            for(j in 0..board.columns-1){
+                if(board.hasMyPieceOnPos2(i, j, player, pieces)) {
+                    calculatePossibilities(i, j, pieces[i][j], 0, player)
+                    var possib = mutableListOf<Move>()
+                    possib = possibilities
+
+                    try {
+                        for (m in possib) {
+                            if (m.order == MoveOrder.PRIMARY) {
+
+                                val newPieces = executeFakeMove(m, pieces)
+                                val oldPieces = board.pieces
+                                board.pieces = newPieces
+                                val moveScore = ab(newPieces, ply - 1, opponent, player, -high, -low)
+                                board.pieces = oldPieces
+
+                               // if(m.type == MoveType.EAT)
+                                   // moveScore
+                                //score(player, newPieces)
+                                if (moveScore != null && bestMove != null) {
+
+                                    if (-moveScore.score > bestMove.score) {
+                                        mLow = -moveScore.score
+                                        bestMove.move = m
+                                        bestMove.score = mLow
+                                    }
+                                    if (mLow >= mHigh)
+                                        return bestMove
+                                }
+                            }
+                        }
+                    }catch(e: ConcurrentModificationException){
+
+                    }
+                }
+            }
+        }
+
+        return bestMove
+    }
+
+    private fun hasMoveOnPos(x: Int, y: Int): Boolean{
+        for(possib in possibilities){
+            if(possib.x == x && possib.y == y)
+                return true
+        }
+
+        return false
+    }
 
 
+    private fun removeMovementsFromPossibilities() {
+        try {
+            var count: Int = 0
+            for (x in 0..possibilities.size-1) {
+                    if (possibilities[x - count].type == MoveType.MOVEMENT) {
+                        possibilities.removeAt(x - count)
+                        count++
+                    }
+            }
+        }
+        catch(e : ConcurrentModificationException){
+
+        }
     }
 
     private fun isOnOpponentBoardEdge(row: Int, column: Int): Boolean{
@@ -215,6 +462,41 @@ class Player (val board: Board,
 
     private fun turnBoss(row: Int, column: Int){
         board.pieces[row][column]?.turnBoss();
+    }
+
+    private fun getMoveAlpha(moveOrder: MoveOrder) = when(moveOrder){
+        MoveOrder.PRIMARY -> 255
+        MoveOrder.SECUNDARY -> 150
+    }
+
+    private fun executeFakeMove(move: Move,  pieces: Array<Array<Piece?>>): Array<Array<Piece?>>{
+        var aux: Move? = move
+        var mPieces = com.felcks.jogo_dama.array2d<Piece?>(board.rows, board.columns) { null }
+        for(i in 0..board.rows-1){
+            for(j in 0..board.columns-1){
+                mPieces[i][j] = pieces[i][j]
+            }
+        }
+        while (aux?.prev != null) {
+            aux = aux.prev as Move
+        }
+
+
+        do {
+            mPieces[aux!!.x][aux!!.y] = mPieces[aux.oldX][aux.oldY]
+            mPieces[aux!!.oldX][aux!!.oldY] = null
+            if(aux.type == MoveType.EAT){
+                mPieces = board.fakeEatPiece(aux, mPieces)
+                eatenPieces++
+            }
+            aux = aux.next
+        } while (aux != null)
+
+        if (isOnOpponentBoardEdge(move.x, move.y)) {
+            turnBoss(move.x, move.y)
+        }
+
+        return mPieces
     }
 
 }
