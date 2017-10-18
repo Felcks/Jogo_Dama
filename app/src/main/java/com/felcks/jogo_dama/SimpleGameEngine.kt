@@ -10,9 +10,14 @@ import android.view.Display
 class SimpleGameEngine : Activity() {
 
     var gameManager : GameManager? = null
+    var dificult: Int = 0;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val bundle =  intent.extras
+        if(bundle != null)
+            dificult = bundle.getInt("dificult", 0)
 
         val display : Display = windowManager.defaultDisplay
         val size : Point = Point()
@@ -20,7 +25,7 @@ class SimpleGameEngine : Activity() {
         SCREEN_WIDTH = size.x
         SCREEN_HEIGHT = size.y
 
-        gameManager = GameManager(this)
+        gameManager = GameManager(this, dificult)
         setContentView(gameManager)
     }
 

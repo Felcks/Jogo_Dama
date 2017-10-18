@@ -11,7 +11,7 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 
-class GameManager(context: Context) : SurfaceView(context), Runnable{
+class GameManager(context: Context, val dificult: Int) : SurfaceView(context), Runnable{
 
     val surfaceHolder : SurfaceHolder by lazy<SurfaceHolder>{
         holder
@@ -34,7 +34,12 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
     init {
         board = Board(8,8)
         player_1 = Player(board, PieceColor.WHITE, PlayerType.HUMAN, PlayerSide.BOTTOM, this)
-        player_2 = Player(board, PieceColor.BLACK, PlayerType.MACHINE, PlayerSide.TOP, this)
+
+        if(dificult == 0)
+            player_2 = Player(board, PieceColor.BLACK, PlayerType.HUMAN, PlayerSide.TOP, this)
+        else
+            player_2 = Player(board, PieceColor.BLACK, PlayerType.MACHINE, PlayerSide.TOP, this)
+
         player_turn = player_1
     }
 
@@ -96,7 +101,7 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
 
     fun update(){
         if(player_turn.playerType == PlayerType.MACHINE && player_turn.playing == false){
-            player_turn.alphaBeta(board.pieces, 2, player_1)
+            player_turn.alphaBeta(board.pieces, dificult, player_1)
             player_turn.playing = true
         }
     }

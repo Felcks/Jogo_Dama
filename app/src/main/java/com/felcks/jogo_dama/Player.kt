@@ -125,7 +125,7 @@ class Player (val board: Board,
     private fun calculatePossibilities(i: Int, j: Int, piece: Piece?, blockQuad: Int, player: Player): List<Move>{
 
        // possibilities.clear()
-        val possibilities: MutableList<Move> = mutableListOf()
+        var possibilities: MutableList<Move> = mutableListOf()
 
         var possib_x = arrayOf(-1)
         var possib_y = arrayOf(-1)
@@ -151,7 +151,7 @@ class Player (val board: Board,
                         blockQuad1 = true
                         val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        possibilities.addAll(calculateMovePossib(x, j - count, move, player))
+                        possibilities.addAll(calculateMovePossib(x, j - count, move, player, possibilities))
                     }
                     else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
@@ -168,7 +168,7 @@ class Player (val board: Board,
                         blockQuad2 = true
                         val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        possibilities.addAll(calculateMovePossib(x, j + count, move, player))
+                        possibilities.addAll(calculateMovePossib(x, j + count, move, player, possibilities))
                     }
                     else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
@@ -202,7 +202,7 @@ class Player (val board: Board,
                         blockQuad1 = true
                         val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        possibilities.addAll(calculateMovePossib(x, j - count, move, player))
+                        possibilities.addAll(calculateMovePossib(x, j - count, move, player, possibilities))
                     }
                     else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
@@ -220,7 +220,7 @@ class Player (val board: Board,
                         blockQuad2 = true
                         val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        possibilities.addAll(calculateMovePossib(x, j + count, move, player))
+                        possibilities.addAll(calculateMovePossib(x, j + count, move, player, possibilities))
                     }
                     else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
@@ -267,7 +267,10 @@ class Player (val board: Board,
                                     possibilities.removeAll(removeMovementsFromPossibilities(possibilities))
                                     val move = Move(i, j, x + (x - i), y + (y - j), MoveType.EAT, MoveOrder.PRIMARY)
                                     possibilities.add(move)
-                                    possibilities.addAll(calculateMovePossib(x + (x - i), y + (y - j), move, player))
+                                    possibilities = calculateMovePossib(x + (x - i), y + (y - j), move, player, possibilities) as MutableList<Move>
+                                    //val p2 = possibilities
+                                    //p2.removeAll(p)
+                                    //possibilities.addAll(p2)
                                 }
                         }
                     }
@@ -281,9 +284,10 @@ class Player (val board: Board,
 
     private fun calculateMovePossib(i: Int, j: Int,
                                     antMove: Move,
-                                    player: Player): List<Move>{
+                                    player: Player,
+                                    possibilities: MutableList<Move>): List<Move>{
 
-        val possibilities = mutableListOf<Move>()
+        //val possibilities = mutableListOf<Move>()
 
         val possib_x = arrayOf(i - 1, i + 1)
         val possib_y = arrayOf(j - 1, j + 1)
@@ -295,14 +299,15 @@ class Player (val board: Board,
                         val nextY = y + (y - j)
                         if (board.isValidPos(nextX, nextY)) {
                             if (board.hasPieceOnPos(nextX, nextY) == false) {
-                                if(hasMoveOnPos(nextX, nextY) == false) {
+                                if(hasMoveOnPos(nextX, nextY, possibilities) == false) {
                                     val move = Move(i, j, nextX, nextY, MoveType.EAT, MoveOrder.PRIMARY)
                                     move.prev = antMove
                                     antMove.next = move
                                     antMove.order = MoveOrder.SECUNDARY
 
                                     possibilities.add(move)
-                                    possibilities.addAll(calculateMovePossib(nextX, nextY, move, player))
+                                    //val list = calculateMovePossib(nextX, nextY, move, player, possibilities)
+                                    possibilities.addAll(calculateMovePossib(nextX, nextY, move, player, possibilities))
                                 }
                             }
                         }
@@ -314,11 +319,21 @@ class Player (val board: Board,
         return possibilities;
     }
 
+    /*fun merge(default: Collection<Move>, elements: Collection<Move>): List<Move>{
+        for(e in elements){
+
+        }
+    }*/
+
+
+
+
+
     fun alphaBeta(pieces:  Array<Array<Piece?>>, ply: Int, opponent: Player){
 
         //return score if game.isOver
 
-        val moveScore = ab(pieces, ply, this, opponent, -999, 999)
+        val moveScore = ab(pieces, ply, this, opponent, -ply * 1000, ply * 1000)
 
         var aux: Move? = moveScore?.move
         while (aux?.prev != null) {
@@ -346,6 +361,8 @@ class Player (val board: Board,
                     }
             }
         }
+        else
+            Log.i("script", "diff null")
 
         Log.i("script", "made movement")
 
@@ -378,7 +395,7 @@ class Player (val board: Board,
 
     fun ab(pieces:  Array<Array<Piece?>>, ply: Int, player: Player, opponent: Player, low: Int, high: Int): MoveScore?{
         var bestScore = -999
-        var bestMove : MoveScore? = MoveScore(null, -999)
+        var bestMove : MoveScore? = MoveScore(null, -high)
         var mLow = low
         var mHigh = high
 
@@ -408,7 +425,7 @@ class Player (val board: Board,
 
                                 //if(m == )
                                 if(m.type == MoveType.EAT){
-                                    moveScore!!.score *= 10 * ply
+                                    moveScore!!.score *= 1000 * ply
                                 }
 
                                 // / if(m.type == MoveType.EAT)
@@ -427,8 +444,10 @@ class Player (val board: Board,
 
 
                                     }
-                                    //if (mLow >= mHigh)
-                                      //  return bestMove
+                                    if (mLow >= mHigh) {
+                                        Log.i("script", "poda $mLow $mHigh")
+                                        return bestMove
+                                    }
                                 }
                             }
                         }
@@ -442,7 +461,7 @@ class Player (val board: Board,
         return bestMove
     }
 
-    private fun hasMoveOnPos(x: Int, y: Int): Boolean{
+    private fun hasMoveOnPos(x: Int, y: Int, possibilities: List<Move>): Boolean{
         for(possib in possibilities){
             if(possib.x == x && possib.y == y)
                 return true
@@ -515,7 +534,7 @@ class Player (val board: Board,
             mPieces[aux!!.oldX][aux!!.oldY] = null
             if(aux.type == MoveType.EAT){
                 mPieces = board.fakeEatPiece(aux, mPieces)
-                eatenPieces++
+                //eatenPieces++
             }
             aux = aux.next
         } while (aux != null)
