@@ -14,7 +14,7 @@ class Player (val board: Board,
               val playerSide: PlayerSide,
               val gameManager: GameManager) {
 
-    val possibilities = mutableListOf<Move>()
+    var possibilities = mutableListOf<Move>()
     var hasSelectedPiece: Boolean = false
     var clickedPiece: Piece? = null
     var eatenPieces = 0
@@ -111,7 +111,7 @@ class Player (val board: Board,
                                     return
                                 }
 
-                            calculatePossibilities(i, j, board.pieces[i][j], 0, this)
+                            this.possibilities = calculatePossibilities(i, j, board.pieces[i][j], 0, this) as MutableList<Move>
                             hasSelectedPiece = true
                             clickedPiece = board.pieces[i][j]
                             return
@@ -122,15 +122,16 @@ class Player (val board: Board,
         }
     }
 
-    private fun calculatePossibilities(i: Int, j: Int, piece: Piece?, blockQuad: Int, player: Player){
+    private fun calculatePossibilities(i: Int, j: Int, piece: Piece?, blockQuad: Int, player: Player): List<Move>{
 
-        possibilities.clear()
+       // possibilities.clear()
+        val possibilities: MutableList<Move> = mutableListOf()
 
         var possib_x = arrayOf(-1)
         var possib_y = arrayOf(-1)
 
         if(piece == null)
-            return;
+            return possibilities
 
         if(piece.type == PieceType.DAMA){
             var count: Int = 1
@@ -142,7 +143,7 @@ class Player (val board: Board,
             for(x in i-1 downTo 0){
 
                 if(board.isValidPos(x, j-count) == true && blockQuad1 == false) {
-                    if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                    if (board.hasMyPieceOnPos(x, j - count, player) == true)
                         blockQuad1 = true
                     else if(board.hasPieceOnPos(x, j - count) && eatQuad1 == false)
                         eatQuad1 = true
@@ -150,7 +151,7 @@ class Player (val board: Board,
                         blockQuad1 = true
                         val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        calculateMovePossib(x, j - count, move)
+                        possibilities.addAll(calculateMovePossib(x, j - count, move, player))
                     }
                     else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
@@ -159,7 +160,7 @@ class Player (val board: Board,
                     blockQuad1 = true
 
                 if(board.isValidPos(x, j + count) == true && blockQuad2 == false) {
-                    if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                    if (board.hasMyPieceOnPos(x, j + count, player) == true)
                         blockQuad2 = true
                     else if(board.hasPieceOnPos(x, j + count) && eatQuad2 == false)
                         eatQuad2 = true
@@ -167,7 +168,7 @@ class Player (val board: Board,
                         blockQuad2 = true
                         val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        calculateMovePossib(x, j + count, move)
+                        possibilities.addAll(calculateMovePossib(x, j + count, move, player))
                     }
                     else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
@@ -193,7 +194,7 @@ class Player (val board: Board,
             for(x in i+1..board.rows-1){
 
                 if(board.isValidPos(x, j-count) == true && blockQuad1 == false) {
-                    if (board.hasMyPieceOnPos(x, j - count, this) == true)
+                    if (board.hasMyPieceOnPos(x, j - count, player) == true)
                         blockQuad1 = true
                     else if(board.hasPieceOnPos(x, j - count) && eatQuad1 == false)
                         eatQuad1 = true
@@ -201,7 +202,7 @@ class Player (val board: Board,
                         blockQuad1 = true
                         val move = Move(i, j, x, j - count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        calculateMovePossib(x, j - count, move)
+                        possibilities.addAll(calculateMovePossib(x, j - count, move, player))
                     }
                     else if(board.hasPieceOnPos(x, j - count) == true && eatQuad1 == true)
                         blockQuad1 = true
@@ -211,7 +212,7 @@ class Player (val board: Board,
 
 
                 if(board.isValidPos(x, j + count) == true && blockQuad2 == false) {
-                    if (board.hasMyPieceOnPos(x, j + count, this) == true)
+                    if (board.hasMyPieceOnPos(x, j + count, player) == true)
                         blockQuad2 = true
                     else if(board.hasPieceOnPos(x, j + count) && eatQuad2 == false)
                         eatQuad2 = true
@@ -219,7 +220,7 @@ class Player (val board: Board,
                         blockQuad2 = true
                         val move = Move(i, j, x, j + count, MoveType.EAT, MoveOrder.PRIMARY)
                         possibilities.add(move)
-                        calculateMovePossib(x, j + count, move)
+                        possibilities.addAll(calculateMovePossib(x, j + count, move, player))
                     }
                     else if(board.hasPieceOnPos(x, j + count) == true && eatQuad2 == true)
                         blockQuad2 = true
@@ -260,13 +261,13 @@ class Player (val board: Board,
             for(x in possib_x) {
                 for (y in possib_y) {
                     if (board.isValidPos(x, y)) {
-                        if (board.hasEnemyPieceOnPos(x, y, this)) {
+                        if (board.hasEnemyPieceOnPos(x, y, player)) {
                             if (board.isValidPos(x + (x - i), y + (y - j)))
                                 if (board.hasPieceOnPos(x + (x - i), y + (y - j)) == false) {
-                                    removeMovementsFromPossibilities()
+                                    possibilities.removeAll(removeMovementsFromPossibilities(possibilities))
                                     val move = Move(i, j, x + (x - i), y + (y - j), MoveType.EAT, MoveOrder.PRIMARY)
                                     possibilities.add(move)
-                                    calculateMovePossib(x + (x - i), y + (y - j), move)
+                                    possibilities.addAll(calculateMovePossib(x + (x - i), y + (y - j), move, player))
                                 }
                         }
                     }
@@ -274,16 +275,22 @@ class Player (val board: Board,
             }
 
         }
+
+        return possibilities
     }
 
-    private fun calculateMovePossib(i: Int, j: Int, antMove: Move){
+    private fun calculateMovePossib(i: Int, j: Int,
+                                    antMove: Move,
+                                    player: Player): List<Move>{
+
+        val possibilities = mutableListOf<Move>()
 
         val possib_x = arrayOf(i - 1, i + 1)
         val possib_y = arrayOf(j - 1, j + 1)
         for(x in possib_x) {
             for (y in possib_y) {
                 if (board.isValidPos(x, y)) {
-                    if (board.hasEnemyPieceOnPos(x, y, this)) {
+                    if (board.hasEnemyPieceOnPos(x, y, player)) {
                         val nextX = x + (x - i)
                         val nextY = y + (y - j)
                         if (board.isValidPos(nextX, nextY)) {
@@ -295,7 +302,7 @@ class Player (val board: Board,
                                     antMove.order = MoveOrder.SECUNDARY
 
                                     possibilities.add(move)
-                                    calculateMovePossib(nextX, nextY, move)
+                                    possibilities.addAll(calculateMovePossib(nextX, nextY, move, player))
                                 }
                             }
                         }
@@ -303,6 +310,8 @@ class Player (val board: Board,
                 }
             }
         }
+
+        return possibilities;
     }
 
     fun alphaBeta(pieces:  Array<Array<Piece?>>, ply: Int, opponent: Player){
@@ -359,8 +368,10 @@ class Player (val board: Board,
             }
         }
 
-        Log.i("script", "$scr");
+        //Log.i("script", "$scr");
         scr += win
+        //if(player.playerType == PlayerType.HUMAN)
+          //  scr *= -1
 
         return scr
     }
@@ -374,18 +385,18 @@ class Player (val board: Board,
         if(ply == 0){
             val score: Int = score(player, pieces)
             bestMove = MoveScore(null, score)
-            Log.i("script", "passou aqui")
             return bestMove
         }
 
         for(i in 0..board.rows-1){
             for(j in 0..board.columns-1){
                 if(board.hasMyPieceOnPos2(i, j, player, pieces)) {
-                    calculatePossibilities(i, j, pieces[i][j], 0, player)
-                    var possib = mutableListOf<Move>()
-                    possib = possibilities
+                    val possib = calculatePossibilities(i, j, pieces[i][j], 0, player)
+                    //var possib = mutableListOf<Move>()
+                    //possib = possibilities
 
                     try {
+                        var m: Move
                         for (m in possib) {
                             if (m.order == MoveOrder.PRIMARY) {
 
@@ -395,23 +406,34 @@ class Player (val board: Board,
                                 val moveScore = ab(newPieces, ply - 1, opponent, player, -high, -low)
                                 board.pieces = oldPieces
 
-                               // if(m.type == MoveType.EAT)
+                                //if(m == )
+                                if(m.type == MoveType.EAT){
+                                    moveScore!!.score *= 10 * ply
+                                }
+
+                                // / if(m.type == MoveType.EAT)
                                    // moveScore
                                 //score(player, newPieces)
                                 if (moveScore != null && bestMove != null) {
+
+                                    //if(moveScore.move?.type == MoveType.EAT){
+                                      //  moveScore.score *= 10 * ply
+                                    //}
 
                                     if (-moveScore.score > bestMove.score) {
                                         mLow = -moveScore.score
                                         bestMove.move = m
                                         bestMove.score = mLow
+
+
                                     }
-                                    if (mLow >= mHigh)
-                                        return bestMove
+                                    //if (mLow >= mHigh)
+                                      //  return bestMove
                                 }
                             }
                         }
                     }catch(e: ConcurrentModificationException){
-
+                        Log.i("script", "concurrent exception ${e.message}")
                     }
                 }
             }
@@ -430,18 +452,24 @@ class Player (val board: Board,
     }
 
 
-    private fun removeMovementsFromPossibilities() {
+    private fun removeMovementsFromPossibilities(possibilities: MutableList<Move>): List<Move> {
+
+        val possib = mutableListOf<Move>()
         try {
             var count: Int = 0
             for (x in 0..possibilities.size-1) {
                     if (possibilities[x - count].type == MoveType.MOVEMENT) {
-                        possibilities.removeAt(x - count)
-                        count++
+                        possib.add(possibilities.get(x - count))
+                        //possibilities.removeAt(x - count)
+                        //count++
                     }
             }
         }
         catch(e : ConcurrentModificationException){
 
+        }
+        finally {
+            return possibilities
         }
     }
 

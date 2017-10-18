@@ -96,7 +96,7 @@ class GameManager(context: Context) : SurfaceView(context), Runnable{
 
     fun update(){
         if(player_turn.playerType == PlayerType.MACHINE && player_turn.playing == false){
-            player_turn.alphaBeta(board.pieces, 4, player_1)
+            player_turn.alphaBeta(board.pieces, 2, player_1)
             player_turn.playing = true
         }
     }
